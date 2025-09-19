@@ -4,6 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 
 interface Equipment {
@@ -28,6 +31,15 @@ interface Review {
 
 const Index: React.FC = () => {
   const [activeSection, setActiveSection] = useState('home');
+  const [calculatorData, setCalculatorData] = useState({
+    equipmentType: 'burner',
+    area: '',
+    height: '',
+    temperature: '',
+    gasType: 'natural',
+    efficiency: '90',
+    results: null as any
+  });
 
   const equipmentData: Equipment[] = [
     {
@@ -199,6 +211,263 @@ const Index: React.FC = () => {
       />
     ));
   };
+
+  const calculatePower = () => {
+    const area = parseFloat(calculatorData.area) || 0;
+    const height = parseFloat(calculatorData.height) || 3;
+    const temperature = parseFloat(calculatorData.temperature) || 20;
+    const efficiency = parseFloat(calculatorData.efficiency) || 90;
+    
+    let baseConsumption = 0;
+    let powerKW = 0;
+    
+    const volume = area * height;
+    
+    switch (calculatorData.equipmentType) {
+      case 'burner':
+        // Расчет для горелки: 100 Вт/м² + поправка на высоту потолков
+        baseConsumption = area * 0.1 * (height > 3 ? 1.2 : 1);
+        powerKW = baseConsumption * (100 - temperature) / 20;
+        break;
+      case 'heater':
+        // Расчет для отопительного оборудования
+        baseConsumption = volume * 0.04;
+        powerKW = baseConsumption * (100 - temperature) / 25;
+        break;
+      case 'boiler':
+        // Расчет для котельного оборудования
+        baseConsumption = area * 0.15;
+        powerKW = baseConsumption * (100 - temperature) / 15;
+        break;
+      default:
+        powerKW = area * 0.1;
+    }
+    
+    const gasConsumption = (powerKW * 1000) / (9.5 * (efficiency / 100)); // м³/ч
+    const dailyConsumption = gasConsumption * 24;
+    const monthlyConsumption = dailyConsumption * 30;
+    
+    const results = {
+      powerKW: Math.round(powerKW * 100) / 100,
+      gasConsumption: Math.round(gasConsumption * 100) / 100,
+      dailyConsumption: Math.round(dailyConsumption * 100) / 100,
+      monthlyConsumption: Math.round(monthlyConsumption * 100) / 100,
+      volume: Math.round(volume * 100) / 100
+    };
+    
+    setCalculatorData({ ...calculatorData, results });
+  };
+
+  const CalculatorPage = () => (
+    <div className="py-16 px-6">
+      <div className="container mx-auto max-w-4xl">
+        <h2 className="text-4xl font-bold text-center mb-12">Калькулятор мощности оборудования</h2>
+        
+        <div className="grid lg:grid-cols-2 gap-12">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Icon name="Calculator" className="mr-2 text-blue-600" />
+                Параметры расчета
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <Label htmlFor="equipmentType">Тип оборудования</Label>
+                <Select value={calculatorData.equipmentType} onValueChange={(value) => setCalculatorData({...calculatorData, equipmentType: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите тип" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="burner">Газовая горелка</SelectItem>
+                    <SelectItem value="heater">Газовый обогреватель</SelectItem>
+                    <SelectItem value="boiler">Котельное оборудование</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="area">Площадь помещения (м²)</Label>
+                  <Input
+                    id="area"
+                    type="number"
+                    placeholder="100"
+                    value={calculatorData.area}
+                    onChange={(e) => setCalculatorData({...calculatorData, area: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="height">Высота потолков (м)</Label>
+                  <Input
+                    id="height"
+                    type="number"
+                    placeholder="3.0"
+                    value={calculatorData.height}
+                    onChange={(e) => setCalculatorData({...calculatorData, height: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="temperature">Требуемая температура (°C)</Label>
+                <Input
+                  id="temperature"
+                  type="number"
+                  placeholder="20"
+                  value={calculatorData.temperature}
+                  onChange={(e) => setCalculatorData({...calculatorData, temperature: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="gasType">Тип газа</Label>
+                <Select value={calculatorData.gasType} onValueChange={(value) => setCalculatorData({...calculatorData, gasType: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="natural">Природный газ</SelectItem>
+                    <SelectItem value="propane">Пропан</SelectItem>
+                    <SelectItem value="butane">Бутан</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="efficiency">КПД оборудования (%)</Label>
+                <Select value={calculatorData.efficiency} onValueChange={(value) => setCalculatorData({...calculatorData, efficiency: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="85">85% (Стандартное)</SelectItem>
+                    <SelectItem value="90">90% (Улучшенное)</SelectItem>
+                    <SelectItem value="95">95% (Премиум)</SelectItem>
+                    <SelectItem value="98">98% (Конденсационное)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button onClick={calculatePower} className="w-full gas-gradient text-white">
+                <Icon name="Play" className="mr-2" size={16} />
+                Рассчитать параметры
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Icon name="BarChart3" className="mr-2 text-green-600" />
+                Результаты расчета
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {calculatorData.results ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {calculatorData.results.powerKW} кВт
+                      </div>
+                      <div className="text-sm text-gray-600">Требуемая мощность</div>
+                    </div>
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600">
+                        {calculatorData.results.volume} м³
+                      </div>
+                      <div className="text-sm text-gray-600">Объем помещения</div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-3">
+                    <h4 className="font-semibold">Потребление газа:</h4>
+                    <div className="grid gap-2">
+                      <div className="flex justify-between">
+                        <span>В час:</span>
+                        <span className="font-medium">{calculatorData.results.gasConsumption} м³</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>В сутки:</span>
+                        <span className="font-medium">{calculatorData.results.dailyConsumption} м³</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>В месяц:</span>
+                        <span className="font-medium">{calculatorData.results.monthlyConsumption} м³</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="bg-yellow-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-yellow-800 mb-2">Рекомендации:</h4>
+                    <ul className="text-sm text-yellow-700 space-y-1">
+                      <li>• Учтите коэффициент неодновременности работы</li>
+                      <li>• Добавьте 20% запас мощности для пиковых нагрузок</li>
+                      <li>• Проверьте соответствие давления газа в сети</li>
+                    </ul>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-gray-500 py-12">
+                  <Icon name="Calculator" size={64} className="mx-auto mb-4 text-gray-300" />
+                  <p>Введите параметры и нажмите "Рассчитать" для получения результатов</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-12">
+          <Card>
+            <CardHeader>
+              <CardTitle>Формулы расчета</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="burner">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="burner">Горелки</TabsTrigger>
+                  <TabsTrigger value="heater">Обогреватели</TabsTrigger>
+                  <TabsTrigger value="boiler">Котельные</TabsTrigger>
+                </TabsList>
+                <TabsContent value="burner" className="space-y-4">
+                  <h4 className="font-semibold">Расчет мощности газовой горелки:</h4>
+                  <div className="bg-gray-50 p-4 rounded-lg font-mono text-sm">
+                    Q = S × 0.1 × K_h × (T_требуемая - T_наружная) / 20
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    где S - площадь (м²), K_h - коэффициент высоты потолков, T - температуры (°C)
+                  </div>
+                </TabsContent>
+                <TabsContent value="heater" className="space-y-4">
+                  <h4 className="font-semibold">Расчет мощности обогревателя:</h4>
+                  <div className="bg-gray-50 p-4 rounded-lg font-mono text-sm">
+                    Q = V × 0.04 × (T_требуемая - T_наружная) / 25
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    где V - объем помещения (м³), T - температуры (°C)
+                  </div>
+                </TabsContent>
+                <TabsContent value="boiler" className="space-y-4">
+                  <h4 className="font-semibold">Расчет мощности котельного оборудования:</h4>
+                  <div className="bg-gray-50 p-4 rounded-lg font-mono text-sm">
+                    Q = S × 0.15 × (T_требуемая - T_наружная) / 15
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    где S - площадь (м²), T - температуры (°C)
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
 
   const HomePage = () => (
     <div className="min-h-screen">
@@ -483,6 +752,14 @@ const Index: React.FC = () => {
               >
                 Каталог
               </button>
+              <button 
+                onClick={() => setActiveSection('calculator')}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  activeSection === 'calculator' ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-blue-600'
+                }`}
+              >
+                Калькулятор
+              </button>
             </div>
 
             <Button size="sm" className="gas-gradient text-white">
@@ -497,6 +774,7 @@ const Index: React.FC = () => {
       {activeSection === 'home' && <HomePage />}
       {activeSection === 'about' && <AboutPage />}
       {activeSection === 'catalog' && <CatalogPage />}
+      {activeSection === 'calculator' && <CalculatorPage />}
     </div>
   );
 };
